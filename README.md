@@ -17,7 +17,7 @@
 
 ```bash
 # 需要Go 1.20+
-go install https://github.com/vvfock3r/mysqlexport
+go install github.com/vvfock3r/mysqlexport@latest
 ```
 
 ## 选项
