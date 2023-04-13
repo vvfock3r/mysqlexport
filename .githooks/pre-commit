@@ -1,0 +1,12 @@
+#!/bin/sh
+
+echo "pre-commit"
+
+echo "    RUN go mod tidy"
+go mod tidy || exit 1
+
+echo "    RUN gofmt -w -r \"interface{} -> any\" ."
+gofmt -w -r "interface{} -> any" . || exit 1
+
+echo "    RUN go vet ."
+go vet . || exit 1
