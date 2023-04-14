@@ -204,6 +204,8 @@ func (e *Excel) NewStreamWriter() error {
 
 	e.f = f
 	e.w = w
+	e.rowHeightMap = make(map[int]float64)
+	e.colAlignMap = make(map[int]string)
 
 	return nil
 }
@@ -478,85 +480,81 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		run()
+		// 执行SQL
+		err := my.Query()
+		if err != nil {
+			panic(err)
+		}
+
+		// 初始化 Excel
+		err = excel.NewStreamWriter()
+		if err != nil {
+			panic(err)
+		}
+		defer excel.MustClose()
+
+		// 设置列宽,格式为: 1:10,2-3:20,代表第1列宽度为10,第2和3列宽度为20
+		err = excel.SetColWidth()
+		if err != nil {
+			panic(err)
+		}
+
+		// 解析行高 1:20,2:30
+		err = excel.SetRowHeight()
+		if err != nil {
+			panic(err)
+		}
+
+		// 解析列对齐方式 1:center,2-3:left
+		err = excel.SetColAlign()
+		if err != nil {
+			panic(err)
+		}
+
+		// 设置表头(对所有Sheet生效)
+		var header []any
+		for i, value := range my.columnNames {
+			style, err := excel.getStyleID(i + 1)
+			if err != nil {
+				panic(err)
+			}
+			header = append(header, excelize.Cell{Value: value, StyleID: style})
+		}
+		excel.SetHeader(header)
+
+		// 遍历每一条记录
+		for my.rows.Next() {
+			// 获取一行
+			row, err := my.rows.SliceScan()
+			if err != nil {
+				panic(err)
+			}
+
+			// 遍历每个字段,收集值
+			rowValue, err := my.ParseRow(row)
+			if err != nil {
+				panic(err)
+			}
+
+			// 添加一行到Excel
+			err = excel.AddRow(rowValue)
+			if err != nil {
+				panic(err)
+			}
+
+			// 是否休眠一下以减轻MySQL的压力
+			my.CheckSleep()
+		}
+
+		// 修改Sheet名称
+		err = excel.SetSheetName()
+		if err != nil {
+			panic(err)
+		}
+
+		// 结束
+		logger.Info("execution completed")
 	},
-}
-
-func run() {
-	// 执行SQL
-	err := my.Query()
-	if err != nil {
-		panic(err)
-	}
-
-	// 初始化 Excel
-	err = excel.NewStreamWriter()
-	if err != nil {
-		panic(err)
-	}
-	defer excel.MustClose()
-
-	// 设置列宽,格式为: 1:10,2-3:20,代表第1列宽度为10,第2和3列宽度为20
-	err = excel.SetColWidth()
-	if err != nil {
-		panic(err)
-	}
-
-	// 解析行高 1:20,2:30
-	err = excel.SetRowHeight()
-	if err != nil {
-		panic(err)
-	}
-
-	// 解析列对齐方式 1:center,2-3:left
-	err = excel.SetColAlign()
-	if err != nil {
-		panic(err)
-	}
-
-	// 设置表头(对所有Sheet生效)
-	var header []any
-	for i, value := range my.columnNames {
-		style, err := excel.getStyleID(i + 1)
-		if err != nil {
-			panic(err)
-		}
-		header = append(header, excelize.Cell{Value: value, StyleID: style})
-	}
-	excel.SetHeader(header)
-
-	// 遍历每一条记录
-	for my.rows.Next() {
-		// 获取一行
-		row, err := my.rows.SliceScan()
-		if err != nil {
-			panic(err)
-		}
-
-		// 遍历每个字段,收集值
-		rowValue, err := my.ParseRow(row)
-		if err != nil {
-			panic(err)
-		}
-
-		// 添加一行到Excel
-		err = excel.AddRow(rowValue)
-		if err != nil {
-			panic(err)
-		}
-
-		// 是否休眠一下以减轻MySQL的压力
-		my.CheckSleep()
-	}
-
-	// 修改Sheet名称
-	err = excel.SetSheetName()
-	if err != nil {
-		panic(err)
-	}
-
-	// 结束
-	logger.Info("execution completed")
 }
 
 func in(str string, list []string) bool {
