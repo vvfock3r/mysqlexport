@@ -44,9 +44,9 @@ func (l *Logger) Register(cmd *cobra.Command) {
 	}
 
 	// flags
-	cmd.PersistentFlags().String("log-level", defaultLogConfig.Level, "log level")
-	cmd.PersistentFlags().String("log-format", defaultLogConfig.Format, "log format")
-	cmd.PersistentFlags().String("log-output", defaultLogConfig.Output, "log output")
+	cmd.PersistentFlags().String("log-level", defaultLogConfig.Level, "specifies the level of logging")
+	cmd.PersistentFlags().String("log-format", defaultLogConfig.Format, "specifies the log format")
+	cmd.PersistentFlags().String("log-output", defaultLogConfig.Output, "specifies the log output destination")
 
 	// bind
 	err := viper.BindPFlag(defaultLogLevelKey, cmd.PersistentFlags().Lookup("log-level"))

@@ -184,12 +184,12 @@ type Excel struct {
 	colAlignMap  map[int]string  // 存储列对齐的Map
 
 	// StreamWriter
-	f              *excelize.File
-	sw             *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter
-	header         []any                  // 表头
-	curTotalLine   int                    // 当前累计写入了多少行
-	curSheetLine   int                    // 当前Sheet写入了多少行
-	maxSheetNumber int                    // 每个Sheet最多允许写入多少行
+	f            *excelize.File
+	sw           *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter
+	header       []any                  // 表头
+	curTotalLine int                    // 当前累计写入了多少行
+	curSheetLine int                    // 当前Sheet写入了多少行
+	maxSheetLine int                    // 每个Sheet最多允许写入多少行
 }
 
 func (e *Excel) NewStreamWriter() error {
@@ -228,19 +228,19 @@ func (e *Excel) MustClose() {
 func (e *Excel) SetHeader(header []any) {
 	e.header = header
 	if len(e.header) > 0 {
-		e.maxSheetNumber += 1
+		e.maxSheetLine += 1
 	}
 }
 
 func (e *Excel) AddRow(values []any) error {
 	// 超过最大行则新建Sheet
-	if e.curSheetLine+1 > e.maxSheetNumber {
+	if e.curSheetLine+1 > e.maxSheetLine {
 		err := e.sw.Flush()
 		if err != nil {
 			return err
 		}
 
-		name := "Sheet" + strconv.Itoa(e.curTotalLine/e.maxSheetNumber+1)
+		name := "Sheet" + strconv.Itoa(e.curTotalLine/e.maxSheetLine+1)
 
 		_, err = e.f.NewSheet(name)
 		if err != nil {
@@ -550,9 +550,9 @@ func init() {
 	}
 
 	// mysql flags
-	rootCmd.Flags().StringVarP(&my.execute, "execute", "e", "", "execute sql command")
-	rootCmd.Flags().IntVarP(&my.batchSize, "batch-size", "", 10000, "batch size")
-	rootCmd.Flags().StringVarP(&my.delayTime, "sleep-time", "", "1s", "sleep time")
+	rootCmd.Flags().StringVarP(&my.execute, "execute", "e", "", "specifies the SQL command to be executed.")
+	rootCmd.Flags().IntVarP(&my.batchSize, "batch-size", "", 10000, "specifies the batch size to use when executing SQL commands")
+	rootCmd.Flags().StringVarP(&my.delayTime, "delay-time", "", "1s", "specifies the time to delay between batches when executing SQL")
 
 	err := rootCmd.MarkFlagRequired("execute")
 	if err != nil {
@@ -560,13 +560,13 @@ func init() {
 	}
 
 	// excel flags
-	rootCmd.Flags().StringVarP(&excel.output, "output", "o", "", "output xlsx file")
-	rootCmd.Flags().StringVarP(&excel.password, "excel-password", "", "", "excel-password")
-	rootCmd.Flags().StringVarP(&excel.sheetName, "sheet-name", "", "", "sheet name")
-	rootCmd.Flags().IntVarP(&excel.maxSheetNumber, "sheet-line", "", 1000000, "max line per sheet")
-	rootCmd.Flags().StringVarP(&excel.styleColWidth, "col-width", "", "", "col-width")
-	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "", "col align")
-	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "row height")
+	rootCmd.Flags().StringVarP(&excel.output, "output", "o", "", "specifies the name of the output Excel file")
+	rootCmd.Flags().StringVarP(&excel.password, "setup-password", "", "", "specifies the password for the Excel file")
+	rootCmd.Flags().StringVarP(&excel.sheetName, "sheet-name", "", "", "specifies the name of the sheet in the Excel file")
+	rootCmd.Flags().IntVarP(&excel.maxSheetLine, "sheet-line", "", 1000000, "specifies the maximum number of lines per sheet in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleColWidth, "col-width", "", "", "specifies the column width in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "", "specifies the column alignment in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "specifies the row height in the Excel file")
 
 	err = rootCmd.MarkFlagRequired("output")
 	if err != nil {

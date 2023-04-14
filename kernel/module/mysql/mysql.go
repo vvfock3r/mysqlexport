@@ -78,17 +78,17 @@ func (m *MySQL) Register(cmd *cobra.Command) {
 	}
 
 	// flags
-	cmd.PersistentFlags().StringP("host", "h", defaultHostValue, "mysql host")
-	cmd.PersistentFlags().StringP("port", "P", defaultPortValue, "mysql port")
-	cmd.PersistentFlags().StringP("user", "u", defaultUserValue, "mysql user")
-	cmd.PersistentFlags().StringP("password", "p", defaultPasswordValue, "mysql password")
-	cmd.PersistentFlags().StringP("database", "d", defaultDatabaseValue, "mysql database")
-	cmd.PersistentFlags().String("charset", defaultCharsetValue, "mysql charset")
-	cmd.PersistentFlags().String("collation", defaultCollationValue, "mysql collation")
-	cmd.PersistentFlags().String("connect-timeout", defaultConntimeoutValue, "mysql connect timeout")
-	cmd.PersistentFlags().String("read-timeout", defaultReadtimeoutValue, "mysql read timeout")
-	cmd.PersistentFlags().String("write-timeout", defaultWritetimeoutValue, "mysql write timeout")
-	cmd.PersistentFlags().String("max-allowed-packet", defaultMaxAllowedPacketValue, "mysql max allowed packet")
+	cmd.PersistentFlags().StringP("host", "h", defaultHostValue, "specifies the MySQL host")
+	cmd.PersistentFlags().StringP("port", "P", defaultPortValue, "specifies the MySQL port")
+	cmd.PersistentFlags().StringP("user", "u", defaultUserValue, "specifies the MySQL user")
+	cmd.PersistentFlags().StringP("password", "p", defaultPasswordValue, "specifies the MySQL password")
+	cmd.PersistentFlags().StringP("database", "d", defaultDatabaseValue, "specifies the MySQL database")
+	cmd.PersistentFlags().String("charset", defaultCharsetValue, "specifies the MySQL charset")
+	cmd.PersistentFlags().String("collation", defaultCollationValue, "specifies the MySQL collation")
+	cmd.PersistentFlags().String("connect-timeout", defaultConntimeoutValue, "specifies the MySQL connection timeout")
+	cmd.PersistentFlags().String("read-timeout", defaultReadtimeoutValue, "specifies the MySQL read timeout")
+	cmd.PersistentFlags().String("write-timeout", defaultWritetimeoutValue, "specifies the MySQL write timeout")
+	cmd.PersistentFlags().String("max-allowed-packet", defaultMaxAllowedPacketValue, "specifies the MySQL maximum allowed packet")
 
 	// bind
 	err := viper.BindPFlag(defaultHostKey, cmd.PersistentFlags().Lookup("host"))
