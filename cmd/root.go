@@ -97,7 +97,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 			}
 			continue
 		}
-		if in(dTypeName, []string{"BINARY", "VARBINARY", "BLOB"}) {
+		if in(dTypeName, []string{"BINARY", "VARBINARY", "BLOB", "GEOMETRY"}) {
 			// 转为Go十六进制表示
 			value := fmt.Sprintf("0x%X\n", v)
 
@@ -155,10 +155,23 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 			continue
 		}
 
-		// 不支持的数据库类型
-		logger.Error(fmt.Sprintf("Unsupported database type: %s", dTypeName))
-		return nil, err
+		// JSON类型
+		if in(dTypeName, []string{"JSON"}) {
+			value := string(v.([]byte))
+			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			continue
+		}
+
+		// 未测试过或不支持的类型
+		value, ok := v.([]byte)
+		if ok {
+			logger.Warn(fmt.Sprintf("untested database type: %s, column name: %s", dTypeName, m.columnNames[i]))
+			rowValue = append(rowValue, excelize.Cell{Value: string(value), StyleID: style})
+		} else {
+			logger.Fatal(fmt.Sprintf("unsupported database type: %s, column name: %s", dTypeName, m.columnNames[i]))
+		}
 	}
+
 	return rowValue, nil
 }
 
