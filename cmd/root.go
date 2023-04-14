@@ -3,6 +3,7 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -17,9 +18,13 @@ import (
 	"github.com/vvfock3r/mysqlexport/kernel/module/mysql"
 )
 
+// 概念说明
+// 工作簿 workbook
+// 工作表 sheet
+
 var (
 	my    = &MySQL{}
-	excel = &Excel{}
+	excel = NewExcel()
 )
 
 type MySQL struct {
@@ -192,33 +197,48 @@ type Excel struct {
 	styleColWidth  string // 列宽度
 	styleColAlign  string // 列对齐
 
-	// 存储样式解析结果
+	// 存储样式解析结果和表头等一般不会变的数据
 	rowHeightMap map[int]float64 // 存储行高的Map
 	colAlignMap  map[int]string  // 存储列对齐的Map
+	header       []any           // 表头
 
 	// StreamWriter
-	f            *excelize.File
-	sw           *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter
-	header       []any                  // 表头
-	curTotalLine int                    // 当前累计写入了多少行
-	curSheetLine int                    // 当前Sheet写入了多少行
-	maxSheetLine int                    // 每个Sheet最多允许写入多少行
+	f               *excelize.File
+	sw              *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter
+	maxWorkbookLine int                    // 每个Workbook最多允许写入多少行
+	maxSheetLine    int                    // 每个Sheet最多允许写入多少行
+	curWorkbookLine int                    // 当前Workbook累计写入了多少行
+	curSheetLine    int                    // 当前Sheet写入了多少行
+	curlTotalLine   int                    // 当前总共写入了多少行
 }
 
-func (e *Excel) NewStreamWriter() error {
-	f := excelize.NewFile()
+func NewExcel() *Excel {
+	return &Excel{
+		f:            excelize.NewFile(),
+		rowHeightMap: make(map[int]float64),
+		colAlignMap:  make(map[int]string),
+	}
+}
 
-	sw, err := f.NewStreamWriter("Sheet1")
-	if err != nil {
-		return err
+func (e *Excel) NewStreamWriter() (err error) {
+	e.sw, err = e.f.NewStreamWriter("Sheet1")
+	return err
+}
+
+func (e *Excel) getOutput() string {
+	// 只有一个工作簿的情况下
+	if e.maxWorkbookLine <= 0 || e.curlTotalLine <= e.maxWorkbookLine {
+		return e.output
 	}
 
-	e.f = f
-	e.sw = sw
-	e.rowHeightMap = make(map[int]float64)
-	e.colAlignMap = make(map[int]string)
+	// TODO:绝对路径、文件名包含.需要处理
+	outputList := strings.Split(e.output, ".")
+	name, ext := outputList[0], outputList[1]
 
-	return nil
+	index := math.Ceil(float64(e.curlTotalLine) / float64(e.maxWorkbookLine))
+	indexStr := strconv.FormatFloat(index, 'f', 0, 64)
+
+	return name + "-" + indexStr + "." + ext
 }
 
 func (e *Excel) MustClose() {
@@ -227,7 +247,7 @@ func (e *Excel) MustClose() {
 		logger.Fatal(err.Error())
 	}
 
-	err = e.f.SaveAs(e.output, excelize.Options{Password: e.password})
+	err = e.f.SaveAs(e.getOutput(), excelize.Options{Password: e.password})
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
@@ -246,15 +266,27 @@ func (e *Excel) SetHeader(header []any) {
 }
 
 func (e *Excel) AddRow(values []any) error {
-	// 超过最大行则新建Sheet
+	// 超过工作簿最大行数则重新建一个
+	if e.maxWorkbookLine > 0 && e.curWorkbookLine+1 > e.maxWorkbookLine {
+		e.MustClose()
+
+		e.f = excelize.NewFile()
+		err := e.NewStreamWriter()
+		if err != nil {
+			return err
+		}
+		e.curSheetLine = 0
+		e.curWorkbookLine = 0
+	}
+
+	// 超过工作表最大行数则重新建一个
 	if e.curSheetLine+1 > e.maxSheetLine {
 		err := e.sw.Flush()
 		if err != nil {
 			return err
 		}
 
-		name := "Sheet" + strconv.Itoa(e.curTotalLine/e.maxSheetLine+1)
-
+		name := "Sheet" + strconv.Itoa(e.curWorkbookLine/e.maxSheetLine+1)
 		_, err = e.f.NewSheet(name)
 		if err != nil {
 			return err
@@ -274,27 +306,30 @@ func (e *Excel) AddRow(values []any) error {
 		}
 	}
 
-	// 找到行高
-	height, _ := excel.rowHeightMap[e.curSheetLine+1]
-
 	// 第一行添加表头
 	if e.curSheetLine == 0 && len(e.header) > 0 {
-		err := e.sw.SetRow("A1", e.header, excelize.RowOpts{Height: height})
+		err := e.sw.SetRow("A1", e.header, excelize.RowOpts{Height: e.getNextRowHeight()})
 		if err != nil {
 			return err
 		}
-		e.curSheetLine += 1
-		e.curTotalLine += 1
+		e.curSheetLine++
+		e.curWorkbookLine++
+		e.curlTotalLine++
 	}
 
-	// 重新找到行高
-	height, _ = excel.rowHeightMap[e.curSheetLine+1]
-
 	// 写入数据
-	e.curSheetLine += 1
-	e.curTotalLine += 1
-	cell := "A" + strconv.Itoa(e.curSheetLine)
-	return e.sw.SetRow(cell, values, excelize.RowOpts{Height: height})
+	cell := "A" + strconv.Itoa(e.curSheetLine+1)
+	err := e.sw.SetRow(cell, values, excelize.RowOpts{Height: e.getNextRowHeight()})
+	if err != nil {
+		return err
+	}
+
+	// 计数加1
+	e.curSheetLine++
+	e.curWorkbookLine++
+	e.curlTotalLine++
+
+	return nil
 }
 
 func (e *Excel) SetColWidth() error {
@@ -432,16 +467,21 @@ func (e *Excel) getStyleID(index int) (int, error) {
 	return style, err
 }
 
+func (e *Excel) getNextRowHeight() float64 {
+	height, _ := e.rowHeightMap[e.curSheetLine+1]
+	return height
+}
+
 func (e *Excel) SetSheetName() error {
 	if excel.sheetName == "" {
 		return nil
 	}
 	sheetList := excel.f.GetSheetList()
 	if len(sheetList) <= 1 {
-		return excel.f.SetSheetName("Sheet1", excel.sheetName)
+		return e.f.SetSheetName("Sheet1", excel.sheetName)
 	}
 	for i, v := range sheetList {
-		err := excel.f.SetSheetName(v, excel.sheetName+"-"+strconv.Itoa(i+1))
+		err := e.f.SetSheetName(v, excel.sheetName+"-"+strconv.Itoa(i+1))
 		if err != nil {
 			return err
 		}
@@ -476,7 +516,7 @@ var rootCmd = &cobra.Command{
 		}
 		defer func() { _ = my.rows.Close() }()
 
-		// 初始化 Excel
+		// 初始化Excel流式写入器
 		err = excel.NewStreamWriter()
 		if err != nil {
 			logger.Fatal(err.Error())
@@ -577,6 +617,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&excel.password, "setup-password", "", "", "specifies the password for the Excel file")
 	rootCmd.Flags().StringVarP(&excel.sheetName, "sheet-name", "", "", "specifies the name of the sheet in the Excel file")
 	rootCmd.Flags().IntVarP(&excel.maxSheetLine, "sheet-line", "", 1000000, "specifies the maximum number of lines per sheet in the Excel file")
+	rootCmd.Flags().IntVarP(&excel.maxWorkbookLine, "workbook-line", "", -1, "specifies the maximum number of lines all sheet in the Excel file")
 	rootCmd.Flags().StringVarP(&excel.styleColWidth, "col-width", "", "", "specifies the column width in the Excel file")
 	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "", "specifies the column alignment in the Excel file")
 	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "specifies the row height in the Excel file")
