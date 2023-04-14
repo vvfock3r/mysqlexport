@@ -33,17 +33,16 @@ type MySQL struct {
 	columnNames []string          // 列名称
 	columnTypes []*sql.ColumnType // 列类型
 
-	// 遍历次数
-	delay  time.Duration
-	number int
+	// 数据库每遍历N次延迟多久
+	delayDuration time.Duration // delayTime解析结果
+	rowNextNumber int           // 记录数据库遍历次数
 }
 
 func (m *MySQL) Query() error {
-	delay, err := time.ParseDuration(m.delayTime)
+	delayDuration, err := time.ParseDuration(m.delayTime)
 	if err != nil {
 		return err
 	}
-	m.delay = delay
 
 	rows, err := mysql.DB.Queryx(m.execute)
 	if err != nil {
@@ -61,6 +60,7 @@ func (m *MySQL) Query() error {
 		return err
 	}
 
+	m.delayDuration = delayDuration
 	m.rows = rows
 	m.columnNames = columnNames
 	m.columnTypes = columnTypes
@@ -111,7 +111,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 			// 转为Go数字类型
 			value, err := strconv.Atoi(string(v.([]byte)))
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 			// 收集对象
 			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
@@ -121,7 +121,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 			// 转为Go数字类型
 			value, err := strconv.ParseFloat(string(v.([]byte)), 10)
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 			// 收集对象
 			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
@@ -155,7 +155,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 			continue
 		}
 
-		// 不支持的类型
+		// 不支持的数据库类型
 		logger.Error(fmt.Sprintf("Unsupported database type: %s", dTypeName))
 		return nil, err
 	}
@@ -163,47 +163,45 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 }
 
 func (m *MySQL) CheckSleep() {
-	m.number++
-	if m.number >= m.batchSize {
-		time.Sleep(m.delay)
-		m.number = 0
+	m.rowNextNumber++
+	if m.rowNextNumber >= m.batchSize {
+		time.Sleep(m.delayDuration)
+		m.rowNextNumber = 0
 	}
 }
 
 type Excel struct {
 	// flags
-	password        string // 设置密码
-	sheetBaseName   string // 工作表基础名称,多个工作表会自动添加后缀-N
-	sheetMaxRowLine int    // 每个工作表最大的行数,超过此行数会自动创建新工作表
-	styleRowHeight  string // 行高
-	styleColWidth   string // 列宽度
-	styleColAlign   string // 列对齐
-	output          string // 输出文件
+	password       string // 设置密码
+	output         string // 输出文件
+	sheetName      string // 单个工作表直接使用此名称,多个工作表会自动添加数字后缀:-N
+	styleRowHeight string // 行高
+	styleColWidth  string // 列宽度
+	styleColAlign  string // 列对齐
 
 	// 存储样式解析结果
 	rowHeightMap map[int]float64 // 存储行高的Map
 	colAlignMap  map[int]string  // 存储列对齐的Map
 
-	f *excelize.File
-
 	// StreamWriter
-	w              *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter,当前的StreamWriter
+	f              *excelize.File
+	sw             *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter
 	header         []any                  // 表头
-	curTotalLine   int                    // 当前总共写入了多少行，包含表头(若有)
-	curSheetLine   int                    // 当前Sheet写入了多少行，包含表头(若有)
-	maxSheetNumber int                    // 每个Sheet最多允许写入多少行，自动添加表头行数(若有)
+	curTotalLine   int                    // 当前累计写入了多少行
+	curSheetLine   int                    // 当前Sheet写入了多少行
+	maxSheetNumber int                    // 每个Sheet最多允许写入多少行
 }
 
 func (e *Excel) NewStreamWriter() error {
 	f := excelize.NewFile()
 
-	w, err := f.NewStreamWriter("Sheet1")
+	sw, err := f.NewStreamWriter("Sheet1")
 	if err != nil {
 		return err
 	}
 
 	e.f = f
-	e.w = w
+	e.sw = sw
 	e.rowHeightMap = make(map[int]float64)
 	e.colAlignMap = make(map[int]string)
 
@@ -211,19 +209,19 @@ func (e *Excel) NewStreamWriter() error {
 }
 
 func (e *Excel) MustClose() {
-	err := e.w.Flush()
+	err := e.sw.Flush()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	err = e.f.SaveAs(e.output, excelize.Options{Password: e.password})
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	err = e.f.Close()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 }
 
@@ -237,7 +235,7 @@ func (e *Excel) SetHeader(header []any) {
 func (e *Excel) AddRow(values []any) error {
 	// 超过最大行则新建Sheet
 	if e.curSheetLine+1 > e.maxSheetNumber {
-		err := e.w.Flush()
+		err := e.sw.Flush()
 		if err != nil {
 			return err
 		}
@@ -249,7 +247,7 @@ func (e *Excel) AddRow(values []any) error {
 			return err
 		}
 
-		e.w, err = e.f.NewStreamWriter(name)
+		e.sw, err = e.f.NewStreamWriter(name)
 		if err != nil {
 			return err
 		}
@@ -257,40 +255,9 @@ func (e *Excel) AddRow(values []any) error {
 		e.curSheetLine = 0
 
 		// 重新设置列宽
-		colWidthList := strings.Split(excel.styleColWidth, ",")
-		for _, v := range colWidthList {
-			item := strings.Split(v, ":")
-			if len(item) < 2 {
-				continue
-			}
-			colStr, widthStr := item[0], item[1]
-
-			colList := strings.Split(colStr, "-")
-
-			minStr := colList[0]
-			min, err := strconv.Atoi(minStr)
-			if err != nil {
-				panic(err)
-			}
-			var max int
-			if len(colList) >= 2 {
-				maxStr := colList[1]
-				max, err = strconv.Atoi(maxStr)
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				max = min
-			}
-
-			width, err := strconv.ParseFloat(widthStr, 10)
-			if err != nil {
-				panic(err)
-			}
-			err = e.w.SetColWidth(min, max, width)
-			if err != nil {
-				panic(err)
-			}
+		err = e.SetColWidth()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -299,7 +266,7 @@ func (e *Excel) AddRow(values []any) error {
 
 	// 第一行添加表头
 	if e.curSheetLine == 0 && len(e.header) > 0 {
-		err := e.w.SetRow("A1", e.header, excelize.RowOpts{Height: height})
+		err := e.sw.SetRow("A1", e.header, excelize.RowOpts{Height: height})
 		if err != nil {
 			return err
 		}
@@ -314,71 +281,34 @@ func (e *Excel) AddRow(values []any) error {
 	e.curSheetLine += 1
 	e.curTotalLine += 1
 	cell := "A" + strconv.Itoa(e.curSheetLine)
-	return e.w.SetRow(cell, values, excelize.RowOpts{Height: height})
-}
-
-func (e *Excel) getStyleID(index int) (int, error) {
-	align, ok := e.colAlignMap[index]
-	if !ok {
-		align = "left"
-	}
-	style, err := e.f.NewStyle(&excelize.Style{
-		Alignment: &excelize.Alignment{
-			Horizontal: align,
-			Vertical:   "center",
-		}})
-	if err != nil {
-		return 0, err
-	}
-	return style, nil
-}
-
-func (e *Excel) SetSheetName() error {
-	sheetList := excel.f.GetSheetList()
-	if len(sheetList) <= 1 {
-		return excel.f.SetSheetName("Sheet1", excel.sheetBaseName)
-	}
-	for i, v := range sheetList {
-		err := excel.f.SetSheetName(v, excel.sheetBaseName+"-"+strconv.Itoa(i+1))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return e.sw.SetRow(cell, values, excelize.RowOpts{Height: height})
 }
 
 func (e *Excel) SetColWidth() error {
-	colWidthList := strings.Split(excel.styleColWidth, ",")
-	for _, v := range colWidthList {
-		item := strings.Split(v, ":")
-		if len(item) < 2 {
-			continue
-		}
-		colStr, widthStr := item[0], item[1]
+	list, err := e.parseStyle(e.styleColWidth)
+	if err != nil {
+		return err
+	}
 
-		colList := strings.Split(colStr, "-")
+	for _, item := range list {
+		minStr, maxStr, widthStr := item[0], item[1], item[2]
 
-		minStr := colList[0]
 		min, err := strconv.Atoi(minStr)
 		if err != nil {
 			return err
 		}
-		var max int
-		if len(colList) >= 2 {
-			maxStr := colList[1]
-			max, err = strconv.Atoi(maxStr)
-			if err != nil {
-				return err
-			}
-		} else {
-			max = min
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
 		}
 
 		width, err := strconv.ParseFloat(widthStr, 10)
 		if err != nil {
 			return err
 		}
-		err = excel.w.SetColWidth(min, max, width)
+
+		err = e.sw.SetColWidth(min, max, width)
 		if err != nil {
 			return err
 		}
@@ -387,64 +317,48 @@ func (e *Excel) SetColWidth() error {
 }
 
 func (e *Excel) SetColAlign() error {
-	colAlignList := strings.Split(excel.styleColAlign, ",")
-	for _, v := range colAlignList {
-		item := strings.Split(v, ":")
-		if len(item) < 2 {
-			continue
-		}
-		colStr, align := item[0], item[1] // 1:left
+	list, err := e.parseStyle(e.styleColAlign)
+	if err != nil {
+		return err
+	}
 
-		rowList := strings.Split(colStr, "-") // 1-2:left
+	for _, item := range list {
+		minStr, maxStr, align := item[0], item[1], item[2]
 
-		minStr := rowList[0]
 		min, err := strconv.Atoi(minStr)
 		if err != nil {
-			panic(err)
+			return err
 		}
-		var max int
-		if len(rowList) >= 2 {
-			maxStr := rowList[1]
-			max, err = strconv.Atoi(maxStr)
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			max = min
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
 		}
 
 		for i := min; i <= max; i++ {
-			excel.colAlignMap[i] = align
+			e.colAlignMap[i] = align
 		}
 	}
 	return nil
 }
 
 func (e *Excel) SetRowHeight() error {
-	rowHeightList := strings.Split(excel.styleRowHeight, ",")
-	for _, v := range rowHeightList {
-		item := strings.Split(v, ":")
-		if len(item) < 2 {
-			continue
-		}
-		rowStr, heightStr := item[0], item[1] // 1:20
+	list, err := e.parseStyle(e.styleRowHeight)
+	if err != nil {
+		return err
+	}
 
-		rowList := strings.Split(rowStr, "-") // 1-2:20
+	for _, item := range list {
+		minStr, maxStr, heightStr := item[0], item[1], item[2]
 
-		minStr := rowList[0]
 		min, err := strconv.Atoi(minStr)
 		if err != nil {
 			return err
 		}
-		var max int
-		if len(rowList) >= 2 {
-			maxStr := rowList[1]
-			max, err = strconv.Atoi(maxStr)
-			if err != nil {
-				return err
-			}
-		} else {
-			max = min
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
 		}
 
 		height, err := strconv.ParseFloat(heightStr, 10)
@@ -453,9 +367,71 @@ func (e *Excel) SetRowHeight() error {
 		}
 
 		for i := min; i <= max; i++ {
-			excel.rowHeightMap[i] = height
+			e.rowHeightMap[i] = height
+		}
+	}
+
+	return nil
+}
+
+func (e *Excel) parseStyle(style string) (list [][]string, err error) {
+	if style == "" {
+		return
+	}
+	styleList := strings.Split(style, ",") // []string{"1:10", "2-7:40"}
+	for _, element := range styleList {
+
+		item := strings.Split(element, ":") // []string{"2-7", "40"}
+		if len(item) < 2 {
+			return nil, fmt.Errorf("parse style error: %s", element)
 		}
 
+		key, value := item[0], item[1]     // key="2-7", value="40"
+		keyList := strings.Split(key, "-") // keyList=[]string{"2",7}
+
+		var min, max string
+		min = keyList[0]
+		if len(keyList) >= 2 {
+			max = keyList[1]
+		} else {
+			max = min
+		}
+		list = append(list, []string{min, max, value})
+	}
+
+	return
+}
+
+func (e *Excel) getStyleID(index int) (int, error) {
+	// 列对齐方式
+	align, ok := e.colAlignMap[index]
+	if !ok {
+		align = "left"
+	}
+
+	// 生成样式
+	style, err := e.f.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{
+			Horizontal: align,
+			Vertical:   "center",
+		}})
+
+	return style, err
+}
+
+func (e *Excel) SetSheetName() error {
+	if excel.sheetName == "" {
+		return nil
+	}
+	sheetList := excel.f.GetSheetList()
+	if len(sheetList) <= 1 {
+		return excel.f.SetSheetName("Sheet1", excel.sheetName)
+	}
+	for i, v := range sheetList {
+		err := excel.f.SetSheetName(v, excel.sheetName+"-"+strconv.Itoa(i+1))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -483,40 +459,41 @@ var rootCmd = &cobra.Command{
 		// 执行SQL
 		err := my.Query()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
+		defer func() { _ = my.rows.Close() }()
 
 		// 初始化 Excel
 		err = excel.NewStreamWriter()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 		defer excel.MustClose()
 
-		// 设置列宽,格式为: 1:10,2-3:20,代表第1列宽度为10,第2和3列宽度为20
+		// 设置列宽
 		err = excel.SetColWidth()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
-		// 解析行高 1:20,2:30
+		// 设置行高
 		err = excel.SetRowHeight()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
-		// 解析列对齐方式 1:center,2-3:left
+		// 设置列对齐方式
 		err = excel.SetColAlign()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
-		// 设置表头(对所有Sheet生效)
+		// 设置表头
 		var header []any
 		for i, value := range my.columnNames {
 			style, err := excel.getStyleID(i + 1)
 			if err != nil {
-				panic(err)
+				logger.Fatal(err.Error())
 			}
 			header = append(header, excelize.Cell{Value: value, StyleID: style})
 		}
@@ -527,19 +504,19 @@ var rootCmd = &cobra.Command{
 			// 获取一行
 			row, err := my.rows.SliceScan()
 			if err != nil {
-				panic(err)
+				logger.Fatal(err.Error())
 			}
 
 			// 遍历每个字段,收集值
 			rowValue, err := my.ParseRow(row)
 			if err != nil {
-				panic(err)
+				logger.Fatal(err.Error())
 			}
 
 			// 添加一行到Excel
 			err = excel.AddRow(rowValue)
 			if err != nil {
-				panic(err)
+				logger.Fatal(err.Error())
 			}
 
 			// 是否休眠一下以减轻MySQL的压力
@@ -549,7 +526,7 @@ var rootCmd = &cobra.Command{
 		// 修改Sheet名称
 		err = excel.SetSheetName()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		// 结束
@@ -585,10 +562,10 @@ func init() {
 	// excel flags
 	rootCmd.Flags().StringVarP(&excel.output, "output", "o", "", "output xlsx file")
 	rootCmd.Flags().StringVarP(&excel.password, "excel-password", "", "", "excel-password")
-	rootCmd.Flags().StringVarP(&excel.sheetBaseName, "sheet-name", "", "Sheet", "sheet name")
+	rootCmd.Flags().StringVarP(&excel.sheetName, "sheet-name", "", "", "sheet name")
 	rootCmd.Flags().IntVarP(&excel.maxSheetNumber, "sheet-line", "", 1000000, "max line per sheet")
 	rootCmd.Flags().StringVarP(&excel.styleColWidth, "col-width", "", "", "col-width")
-	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "left", "col align")
+	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "", "col align")
 	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "row height")
 
 	err = rootCmd.MarkFlagRequired("output")

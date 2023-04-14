@@ -200,8 +200,7 @@ func (m *MySQL) Initialize(cmd *cobra.Command) error {
 	// connect to the database
 	db, err := sqlx.Connect("mysql", mysqlConfig.FormatDSN())
 	if err != nil {
-		logger.Error("connect database error", zap.Error(err))
-		os.Exit(1)
+		logger.Fatal("connect database error", zap.Error(err))
 	}
 	logger.Info("connect database success")
 
