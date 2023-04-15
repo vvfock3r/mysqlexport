@@ -50,6 +50,7 @@ Excel Flags:
   -o, --output string               specifies the name of the output Excel file
       --setup-password string       specifies the password for the Excel file
       --sheet-name string           specifies the name of the sheet in the Excel file
+      --workbook-line int           specifies the maximum number of lines all sheet in the Excel file (default -1)
       --sheet-line int              specifies the maximum number of lines per sheet in the Excel file (default 1000000)	  
       --row-height string           specifies the row height in the Excel file
       --col-width string            specifies the column width in the Excel file
@@ -57,7 +58,6 @@ Excel Flags:
 		fmt.Println(msg)
 		os.Exit(0)
 	})
-
 	if h.HiddenShortFlag {
 		cmd.PersistentFlags().Bool("help", false, "displays the help message for the program")
 	} else {

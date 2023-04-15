@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -225,20 +226,33 @@ func (e *Excel) NewStreamWriter() (err error) {
 	return err
 }
 
-func (e *Excel) getOutput() string {
+func (e *Excel) getOutput() (string, error) {
 	// 只有一个工作簿的情况下
-	if e.maxWorkbookLine <= 0 || e.curlTotalLine <= e.maxWorkbookLine {
-		return e.output
+	if e.maxWorkbookLine <= 0 || e.curlTotalLine < e.maxWorkbookLine {
+		return e.output, nil
 	}
 
-	// TODO:绝对路径、文件名包含.需要处理
-	outputList := strings.Split(e.output, ".")
-	name, ext := outputList[0], outputList[1]
+	// 转为绝对路径
+	absOutput, err := filepath.Abs(e.output)
+	if err != nil {
+		return "", err
+	}
+
+	// 绝对路径分割为 路径 和 文件名
+	dir, fileName := filepath.Split(absOutput)
+
+	// 文件名分割为 名称 和 扩展名, 名称中允许包含.
+	outputList := strings.Split(fileName, ".")
+	name := strings.Join(outputList[:len(outputList)-1], ".")
+	ext := outputList[len(outputList)-1]
 
 	index := math.Ceil(float64(e.curlTotalLine) / float64(e.maxWorkbookLine))
 	indexStr := strconv.FormatFloat(index, 'f', 0, 64)
 
-	return name + "-" + indexStr + "." + ext
+	// 组合出新路径
+	newOutput := strings.Join([]string{dir, name, "-", indexStr, ".", ext}, "")
+
+	return newOutput, nil
 }
 
 func (e *Excel) MustClose() {
@@ -247,7 +261,12 @@ func (e *Excel) MustClose() {
 		logger.Fatal(err.Error())
 	}
 
-	err = e.f.SaveAs(e.getOutput(), excelize.Options{Password: e.password})
+	output, err := e.getOutput()
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+
+	err = e.f.SaveAs(output, excelize.Options{Password: e.password})
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
@@ -268,15 +287,27 @@ func (e *Excel) SetHeader(header []any) {
 func (e *Excel) AddRow(values []any) error {
 	// 超过工作簿最大行数则重新建一个
 	if e.maxWorkbookLine > 0 && e.curWorkbookLine+1 > e.maxWorkbookLine {
+		// 修改Sheet名称
+		err := e.SetSheetName()
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		// 保存
 		e.MustClose()
 
 		e.f = excelize.NewFile()
-		err := e.NewStreamWriter()
+		err = e.NewStreamWriter()
 		if err != nil {
 			return err
 		}
 		e.curSheetLine = 0
 		e.curWorkbookLine = 0
+
+		err = e.SetStyle()
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
 	}
 
 	// 超过工作表最大行数则重新建一个
@@ -328,6 +359,27 @@ func (e *Excel) AddRow(values []any) error {
 	e.curSheetLine++
 	e.curWorkbookLine++
 	e.curlTotalLine++
+
+	return nil
+}
+
+func (e *Excel) SetStyle() error {
+	err := e.SetColWidth()
+	if err != nil {
+		return err
+	}
+
+	// 设置行高
+	err = e.SetRowHeight()
+	if err != nil {
+		return err
+	}
+
+	// 设置列对齐方式
+	err = e.SetColAlign()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -473,15 +525,15 @@ func (e *Excel) getNextRowHeight() float64 {
 }
 
 func (e *Excel) SetSheetName() error {
-	if excel.sheetName == "" {
+	if e.sheetName == "" {
 		return nil
 	}
-	sheetList := excel.f.GetSheetList()
+	sheetList := e.f.GetSheetList()
 	if len(sheetList) <= 1 {
-		return e.f.SetSheetName("Sheet1", excel.sheetName)
+		return e.f.SetSheetName("Sheet1", e.sheetName)
 	}
 	for i, v := range sheetList {
-		err := e.f.SetSheetName(v, excel.sheetName+"-"+strconv.Itoa(i+1))
+		err := e.f.SetSheetName(v, e.sheetName+"-"+strconv.Itoa(i+1))
 		if err != nil {
 			return err
 		}
@@ -523,20 +575,8 @@ var rootCmd = &cobra.Command{
 		}
 		defer excel.MustClose()
 
-		// 设置列宽
-		err = excel.SetColWidth()
-		if err != nil {
-			logger.Fatal(err.Error())
-		}
-
-		// 设置行高
-		err = excel.SetRowHeight()
-		if err != nil {
-			logger.Fatal(err.Error())
-		}
-
-		// 设置列对齐方式
-		err = excel.SetColAlign()
+		// 设置样式
+		err = excel.SetStyle()
 		if err != nil {
 			logger.Fatal(err.Error())
 		}
