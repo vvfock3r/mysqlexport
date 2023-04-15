@@ -185,21 +185,27 @@ func (m *MySQL) CheckSleep() {
 
 type Excel struct {
 	// flags
-	password        string // 设置密码
-	output          string // 输出文件
-	sheetName       string // 单个工作表直接使用此名称,多个工作表会自动添加数字后缀:-N
-	styleRowHeight  string // 行高
-	styleColWidth   string // 列宽度
-	styleColAlign   string // 列对齐
-	styleColBgColor string // 背景色
-	styleRowBgColor string // 背景色
+	password          string // 设置密码
+	output            string // 输出文件
+	sheetName         string // 单个工作表直接使用此名称,多个工作表会自动添加数字后缀:-N
+	styleRowHeight    string // 行高
+	styleColWidth     string // 列宽度
+	styleColAlign     string // 列对齐
+	styleRowBgColor   string // 背景色
+	styleColBgColor   string // 背景色
+	styleRowFontColor string // 字体颜色
+	styleColFontColor string // 字体颜色
 
 	// 存储样式解析结果和表头等一般不会变的数据
-	rowHeightMap  map[int]float64 // 存储行高的Map
-	colAlignMap   map[int]string  // 存储列对齐的Map
-	colBgColorMap map[int]string  // 存储背景色的Map
-	rowBgColorMap map[int]string  // 存储背景色的Map
-	header        []excelize.Cell // 表头
+	rowHeightMap    map[int]float64 // 存储行高的Map
+	colAlignMap     map[int]string  // 存储列对齐的Map
+	rowBgColorMap   map[int]string  // 存储背景色的Map
+	colBgColorMap   map[int]string  // 存储背景色的Map
+	rowFontColorMap map[int]string  // 存储字体颜色的Map
+	colFontColorMap map[int]string  // 存储字体颜色的Map
+
+	// 表头
+	header []excelize.Cell
 
 	// StreamWriter
 	f                  *excelize.File
@@ -214,11 +220,13 @@ type Excel struct {
 
 func NewExcel() *Excel {
 	return &Excel{
-		f:             excelize.NewFile(),
-		rowHeightMap:  make(map[int]float64),
-		colAlignMap:   make(map[int]string),
-		colBgColorMap: make(map[int]string),
-		rowBgColorMap: make(map[int]string),
+		f:               excelize.NewFile(),
+		rowHeightMap:    make(map[int]float64),
+		colAlignMap:     make(map[int]string),
+		rowBgColorMap:   make(map[int]string),
+		colBgColorMap:   make(map[int]string),
+		rowFontColorMap: make(map[int]string),
+		colFontColorMap: make(map[int]string),
 	}
 }
 
@@ -338,7 +346,7 @@ func (e *Excel) AddRow(values []excelize.Cell) error {
 
 	// 第一行添加表头
 	if e.curSheetLine == 0 && len(e.header) > 0 {
-		// 设置颜色样式
+		// 设置样式
 		for i := range e.header {
 			style, err := e.getStyleID(e.curSheetHeaderLine+1, i+1)
 			if err != nil {
@@ -347,11 +355,10 @@ func (e *Excel) AddRow(values []excelize.Cell) error {
 			e.header[i].StyleID = style
 		}
 
+		// 类型转换
+		valueAny := e.ConvertAny(e.header)
+
 		// 添加行
-		var valueAny []any
-		for _, cell := range e.header {
-			valueAny = append(valueAny, cell)
-		}
 		err := e.sw.SetRow("A1", valueAny, excelize.RowOpts{Height: e.getNextRowHeight()})
 		if err != nil {
 			return err
@@ -367,12 +374,9 @@ func (e *Excel) AddRow(values []excelize.Cell) error {
 		}
 		values[i].StyleID = style
 	}
-	
+
 	// 类型转换
-	var valueAny []any
-	for _, cell := range values {
-		valueAny = append(valueAny, cell)
-	}
+	valueAny := e.ConvertAny(values)
 
 	// 写入数据
 	cell := "A" + strconv.Itoa(e.curSheetHeaderLine+1)
@@ -388,6 +392,14 @@ func (e *Excel) AddRow(values []excelize.Cell) error {
 	e.curlTotalLine++
 
 	return nil
+}
+
+func (e *Excel) ConvertAny(cells []excelize.Cell) []any {
+	var values []any
+	for _, cell := range cells {
+		values = append(values, cell)
+	}
+	return values
 }
 
 func (e *Excel) SetStyle() error {
@@ -416,6 +428,18 @@ func (e *Excel) SetStyle() error {
 
 	// 设置行背景色
 	err = e.SetRowBgColor()
+	if err != nil {
+		return err
+	}
+
+	// 设置列字体颜色
+	err = e.SetColFontColor()
+	if err != nil {
+		return err
+	}
+
+	// 设置行字体颜色
+	err = e.SetRowFontColor()
 	if err != nil {
 		return err
 	}
@@ -512,6 +536,32 @@ func (e *Excel) SetRowHeight() error {
 	return nil
 }
 
+func (e *Excel) SetRowBgColor() error {
+	list, err := e.parseStyle(e.styleRowBgColor)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range list {
+		minStr, maxStr, bgcolor := item[0], item[1], item[2]
+
+		min, err := strconv.Atoi(minStr)
+		if err != nil {
+			return err
+		}
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
+		}
+
+		for i := min; i <= max; i++ {
+			e.rowBgColorMap[i] = bgcolor
+		}
+	}
+	return nil
+}
+
 func (e *Excel) SetColBgColor() error {
 	list, err := e.parseStyle(e.styleColBgColor)
 	if err != nil {
@@ -538,14 +588,14 @@ func (e *Excel) SetColBgColor() error {
 	return nil
 }
 
-func (e *Excel) SetRowBgColor() error {
-	list, err := e.parseStyle(e.styleRowBgColor)
+func (e *Excel) SetRowFontColor() error {
+	list, err := e.parseStyle(e.styleRowFontColor)
 	if err != nil {
 		return err
 	}
 
 	for _, item := range list {
-		minStr, maxStr, bgcolor := item[0], item[1], item[2]
+		minStr, maxStr, fontColor := item[0], item[1], item[2]
 
 		min, err := strconv.Atoi(minStr)
 		if err != nil {
@@ -558,7 +608,33 @@ func (e *Excel) SetRowBgColor() error {
 		}
 
 		for i := min; i <= max; i++ {
-			e.rowBgColorMap[i] = bgcolor
+			e.rowFontColorMap[i] = fontColor
+		}
+	}
+	return nil
+}
+
+func (e *Excel) SetColFontColor() error {
+	list, err := e.parseStyle(e.styleColFontColor)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range list {
+		minStr, maxStr, fontColor := item[0], item[1], item[2]
+
+		min, err := strconv.Atoi(minStr)
+		if err != nil {
+			return err
+		}
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
+		}
+
+		for i := min; i <= max; i++ {
+			e.colFontColorMap[i] = fontColor
 		}
 	}
 	return nil
@@ -623,6 +699,22 @@ func (e *Excel) getStyleID(rowIndex, colIndex int) (int, error) {
 			Type:    "pattern",
 			Pattern: 1,
 			Color:   []string{rowBgColor},
+		}
+	}
+
+	// 列字体颜色
+	colFontColor, ok := e.colFontColorMap[colIndex]
+	if ok {
+		style.Font = &excelize.Font{
+			Color: colFontColor,
+		}
+	}
+
+	// 行字体颜色
+	rowFontColor, ok := e.rowFontColorMap[rowIndex]
+	if ok {
+		style.Font = &excelize.Font{
+			Color: rowFontColor,
 		}
 	}
 
@@ -771,11 +863,13 @@ func init() {
 	rootCmd.Flags().StringVarP(&excel.sheetName, "sheet-name", "", "", "specifies the name of the sheet in the Excel file")
 	rootCmd.Flags().IntVarP(&excel.maxSheetLine, "sheet-line", "", 1000000, "specifies the maximum number of lines per sheet in the Excel file")
 	rootCmd.Flags().IntVarP(&excel.maxWorkbookLine, "workbook-line", "", -1, "specifies the maximum number of lines all sheet in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "specifies the row height in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleRowBgColor, "row-bg-color", "", "", "specifies the row background color in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleRowFontColor, "row-font-color", "", "", "specifies the row font color in the Excel file")
 	rootCmd.Flags().StringVarP(&excel.styleColWidth, "col-width", "", "", "specifies the column width in the Excel file")
 	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "", "specifies the column alignment in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "specifies the row height in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleColBgColor, "col-bgcolor", "", "", "specifies the col background color in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleRowBgColor, "row-bgcolor", "", "", "specifies the row background color in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleColBgColor, "col-bg-color", "", "", "specifies column background color in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleColFontColor, "col-font-color", "", "", "specifies column font color in the Excel file")
 
 	err = rootCmd.MarkFlagRequired("output")
 	if err != nil {

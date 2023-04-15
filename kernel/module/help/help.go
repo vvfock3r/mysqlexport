@@ -53,8 +53,12 @@ Excel Flags:
       --workbook-line int           specifies the maximum number of lines all sheet in the Excel file (default -1)
       --sheet-line int              specifies the maximum number of lines per sheet in the Excel file (default 1000000)	  
       --row-height string           specifies the row height in the Excel file
+      --row-bg-color string         specifies the row background color in the Excel file
+      --row-font-color string       specifies the row font color in the Excel file
       --col-width string            specifies the column width in the Excel file
-      --col-align string            specifies the column alignment in the Excel file`
+      --col-align string            specifies the column alignment in the Excel file
+      --col-bg-color string         specifies the column background color in the Excel file
+      --col-font-color string       specifies the column font color in the Excel file`
 		fmt.Println(msg)
 		os.Exit(0)
 	})
