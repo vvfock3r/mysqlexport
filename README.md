@@ -177,13 +177,16 @@ Excel Flags:
 
 ![image-20230415211416769](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415211416769.png)
 
-**程序运行时间，总计约26分钟，其中休眠占用 1千万数据/1W条每秒 = 1000秒 =~ 16分钟，程序处理10分钟**
+**程序运行时间，总计约26分钟**
+
+* 休眠占用 1千万数据/1W条每秒 = 1000秒 =~ 16分钟
+* 程序实际处理10分钟
 
 ![image-20230415212735440](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415212735440.png)
 
 **生成的工作簿**
 
-![image-20230415213038849](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415213038849.png)
+![image-20230415214220890](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415214220890.png)
 
 ![image-20230415213123584](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415213123584.png)
 
