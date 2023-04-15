@@ -204,13 +204,14 @@ type Excel struct {
 	header       []any           // 表头
 
 	// StreamWriter
-	f               *excelize.File
-	sw              *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter
-	maxWorkbookLine int                    // 每个Workbook最多允许写入多少行
-	maxSheetLine    int                    // 每个Sheet最多允许写入多少行
-	curWorkbookLine int                    // 当前Workbook累计写入了多少行
-	curSheetLine    int                    // 当前Sheet写入了多少行
-	curlTotalLine   int                    // 当前总共写入了多少行
+	f                  *excelize.File
+	sw                 *excelize.StreamWriter // 每个Sheet拥有一个专属的StreamWriter
+	maxWorkbookLine    int                    // 每个Workbook最多允许写入多少行，不包含表头
+	maxSheetLine       int                    // 每个Sheet最多允许写入多少行，不包含表头
+	curWorkbookLine    int                    // 当前Workbook累计写入了多少行，不包含表头
+	curSheetLine       int                    // 当前Sheet写入了多少行，不包含表头
+	curSheetHeaderLine int                    // 当前Sheet写入了多少行，包含表头
+	curlTotalLine      int                    // 当前总共写入了多少行，不包含表头
 }
 
 func NewExcel() *Excel {
@@ -251,7 +252,6 @@ func (e *Excel) getOutput() (string, error) {
 
 	// 组合出新路径
 	newOutput := strings.Join([]string{dir, name, "-", indexStr, ".", ext}, "")
-
 	return newOutput, nil
 }
 
@@ -279,9 +279,6 @@ func (e *Excel) MustClose() {
 
 func (e *Excel) SetHeader(header []any) {
 	e.header = header
-	if len(e.header) > 0 {
-		e.maxSheetLine += 1
-	}
 }
 
 func (e *Excel) AddRow(values []any) error {
@@ -303,6 +300,7 @@ func (e *Excel) AddRow(values []any) error {
 		}
 		e.curSheetLine = 0
 		e.curWorkbookLine = 0
+		e.curSheetHeaderLine = 0
 
 		err = e.SetStyle()
 		if err != nil {
@@ -329,6 +327,7 @@ func (e *Excel) AddRow(values []any) error {
 		}
 
 		e.curSheetLine = 0
+		e.curSheetHeaderLine = 0
 
 		// 重新设置列宽
 		err = e.SetColWidth()
@@ -343,13 +342,11 @@ func (e *Excel) AddRow(values []any) error {
 		if err != nil {
 			return err
 		}
-		e.curSheetLine++
-		e.curWorkbookLine++
-		e.curlTotalLine++
+		e.curSheetHeaderLine++
 	}
 
 	// 写入数据
-	cell := "A" + strconv.Itoa(e.curSheetLine+1)
+	cell := "A" + strconv.Itoa(e.curSheetHeaderLine+1)
 	err := e.sw.SetRow(cell, values, excelize.RowOpts{Height: e.getNextRowHeight()})
 	if err != nil {
 		return err
@@ -357,6 +354,7 @@ func (e *Excel) AddRow(values []any) error {
 
 	// 计数加1
 	e.curSheetLine++
+	e.curSheetHeaderLine++
 	e.curWorkbookLine++
 	e.curlTotalLine++
 
