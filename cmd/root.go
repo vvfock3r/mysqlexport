@@ -197,6 +197,7 @@ type Excel struct {
 	styleRowHeight string // 行高
 	styleColWidth  string // 列宽度
 	styleColAlign  string // 列对齐
+	styleBgColor   string // 背景颜色
 
 	// 存储样式解析结果和表头等一般不会变的数据
 	rowHeightMap map[int]float64 // 存储行高的Map
@@ -468,7 +469,6 @@ func (e *Excel) SetRowHeight() error {
 			e.rowHeightMap[i] = height
 		}
 	}
-
 	return nil
 }
 
@@ -501,24 +501,34 @@ func (e *Excel) parseStyle(style string) (list [][]string, err error) {
 }
 
 func (e *Excel) getStyleID(index int) (int, error) {
-	// 列对齐方式
+	// 样式对象
+	style := &excelize.Style{}
+
+	// 对齐样式
 	align, ok := e.colAlignMap[index]
 	if !ok {
 		align = "left"
 	}
+	style.Alignment = &excelize.Alignment{
+		Horizontal: align,
+		Vertical:   "center",
+	}
+
+	// 背景颜色
+	//style.Fill = excelize.Fill{
+	//	Type:    "pattern",
+	//	Pattern: 1,
+	//	Color:   []string{"#9BC2E6"},
+	//}
 
 	// 生成样式
-	style, err := e.f.NewStyle(&excelize.Style{
-		Alignment: &excelize.Alignment{
-			Horizontal: align,
-			Vertical:   "center",
-		}})
+	styleID, err := e.f.NewStyle(style)
 
-	return style, err
+	return styleID, err
 }
 
 func (e *Excel) getNextRowHeight() float64 {
-	height, _ := e.rowHeightMap[e.curSheetLine+1]
+	height, _ := e.rowHeightMap[e.curSheetHeaderLine+1]
 	return height
 }
 

@@ -167,5 +167,4 @@ Excel Flags:
 ## TODO
 
 * 支持Excel 更多样式
-* 支持多工作簿
 * 稳定性测试
