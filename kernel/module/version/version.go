@@ -3,6 +3,7 @@ package version
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -21,7 +22,7 @@ func (v *Version) Register(cmd *cobra.Command) {
 
 func (v *Version) MustCheck(*cobra.Command) {
 	if v.flag {
-		fmt.Println(AppVersion)
+		fmt.Printf("mysqlexport version %s %s/%s\n", AppVersion, runtime.GOOS, runtime.GOARCH)
 		os.Exit(0)
 	}
 }
