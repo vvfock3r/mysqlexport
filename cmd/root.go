@@ -74,8 +74,8 @@ func (m *MySQL) Query() error {
 	return nil
 }
 
-func (m *MySQL) ParseRow(row []any) ([]any, error) {
-	var rowValue []any
+func (m *MySQL) ParseRow(row []any) ([]excelize.Cell, error) {
+	var rowValue []excelize.Cell
 	for i, v := range row {
 		// 空值
 		if v == nil {
@@ -86,20 +86,14 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 		// 获取数据库类型
 		dTypeName := m.columnTypes[i].DatabaseTypeName()
 
-		// 样式
-		style, err := excel.getStyleID(i + 1)
-		if err != nil {
-			return nil, err
-		}
-
 		// 字符串类型
 		if in(dTypeName, []string{"CHAR", "VARCHAR", "TEXT"}) {
 			valueStr := string(v.([]byte))
 			valueInt, err := strconv.Atoi(valueStr)
 			if err == nil {
-				rowValue = append(rowValue, excelize.Cell{Value: valueInt, StyleID: style})
+				rowValue = append(rowValue, excelize.Cell{Value: valueInt})
 			} else {
-				rowValue = append(rowValue, excelize.Cell{Value: valueStr, StyleID: style})
+				rowValue = append(rowValue, excelize.Cell{Value: valueStr})
 			}
 			continue
 		}
@@ -108,7 +102,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 			value := fmt.Sprintf("0x%X\n", v)
 
 			// 收集对象
-			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: value})
 			continue
 		}
 
@@ -120,7 +114,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 				return nil, err
 			}
 			// 收集对象
-			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: value})
 			continue
 		}
 		if in(dTypeName, []string{"DECIMAL", "FLOAT", "DOUBLE"}) {
@@ -130,33 +124,33 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 				return nil, err
 			}
 			// 收集对象
-			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: value})
 			continue
 		}
 		if in(dTypeName, []string{"BIT"}) {
 			value := fmt.Sprintf("0x%X\n", v)
-			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: value})
 			continue
 		}
 
 		// 时间类型
 		if in(dTypeName, []string{"DATE"}) {
 			value := v.(time.Time).Format(time.DateOnly)
-			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: value})
 			continue
 		}
 		if in(dTypeName, []string{"DATETIME", "TIMESTAMP"}) {
 			value := v.(time.Time).Format(time.DateTime)
-			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: value})
 			continue
 		}
 		if in(dTypeName, []string{"TIME", "YEAR"}) {
 			valueStr := string(v.([]byte))
 			valueInt, err := strconv.Atoi(valueStr)
 			if err == nil {
-				rowValue = append(rowValue, excelize.Cell{Value: valueInt, StyleID: style})
+				rowValue = append(rowValue, excelize.Cell{Value: valueInt})
 			} else {
-				rowValue = append(rowValue, excelize.Cell{Value: valueStr, StyleID: style})
+				rowValue = append(rowValue, excelize.Cell{Value: valueStr})
 			}
 			continue
 		}
@@ -164,7 +158,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 		// JSON类型
 		if in(dTypeName, []string{"JSON"}) {
 			value := string(v.([]byte))
-			rowValue = append(rowValue, excelize.Cell{Value: value, StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: value})
 			continue
 		}
 
@@ -172,7 +166,7 @@ func (m *MySQL) ParseRow(row []any) ([]any, error) {
 		value, ok := v.([]byte)
 		if ok {
 			logger.Warn(fmt.Sprintf("untested database type: %s, column name: %s", dTypeName, m.columnNames[i]))
-			rowValue = append(rowValue, excelize.Cell{Value: string(value), StyleID: style})
+			rowValue = append(rowValue, excelize.Cell{Value: string(value)})
 		} else {
 			logger.Fatal(fmt.Sprintf("unsupported database type: %s, column name: %s", dTypeName, m.columnNames[i]))
 		}
@@ -191,18 +185,21 @@ func (m *MySQL) CheckSleep() {
 
 type Excel struct {
 	// flags
-	password       string // 设置密码
-	output         string // 输出文件
-	sheetName      string // 单个工作表直接使用此名称,多个工作表会自动添加数字后缀:-N
-	styleRowHeight string // 行高
-	styleColWidth  string // 列宽度
-	styleColAlign  string // 列对齐
-	styleBgColor   string // 背景颜色
+	password        string // 设置密码
+	output          string // 输出文件
+	sheetName       string // 单个工作表直接使用此名称,多个工作表会自动添加数字后缀:-N
+	styleRowHeight  string // 行高
+	styleColWidth   string // 列宽度
+	styleColAlign   string // 列对齐
+	styleColBgColor string // 背景色
+	styleRowBgColor string // 背景色
 
 	// 存储样式解析结果和表头等一般不会变的数据
-	rowHeightMap map[int]float64 // 存储行高的Map
-	colAlignMap  map[int]string  // 存储列对齐的Map
-	header       []any           // 表头
+	rowHeightMap  map[int]float64 // 存储行高的Map
+	colAlignMap   map[int]string  // 存储列对齐的Map
+	colBgColorMap map[int]string  // 存储背景色的Map
+	rowBgColorMap map[int]string  // 存储背景色的Map
+	header        []excelize.Cell // 表头
 
 	// StreamWriter
 	f                  *excelize.File
@@ -217,9 +214,11 @@ type Excel struct {
 
 func NewExcel() *Excel {
 	return &Excel{
-		f:            excelize.NewFile(),
-		rowHeightMap: make(map[int]float64),
-		colAlignMap:  make(map[int]string),
+		f:             excelize.NewFile(),
+		rowHeightMap:  make(map[int]float64),
+		colAlignMap:   make(map[int]string),
+		colBgColorMap: make(map[int]string),
+		rowBgColorMap: make(map[int]string),
 	}
 }
 
@@ -278,11 +277,11 @@ func (e *Excel) MustClose() {
 	}
 }
 
-func (e *Excel) SetHeader(header []any) {
+func (e *Excel) SetHeader(header []excelize.Cell) {
 	e.header = header
 }
 
-func (e *Excel) AddRow(values []any) error {
+func (e *Excel) AddRow(values []excelize.Cell) error {
 	// 超过工作簿最大行数则重新建一个
 	if e.maxWorkbookLine > 0 && e.curWorkbookLine+1 > e.maxWorkbookLine {
 		// 修改Sheet名称
@@ -339,16 +338,45 @@ func (e *Excel) AddRow(values []any) error {
 
 	// 第一行添加表头
 	if e.curSheetLine == 0 && len(e.header) > 0 {
-		err := e.sw.SetRow("A1", e.header, excelize.RowOpts{Height: e.getNextRowHeight()})
+		// 设置颜色样式
+		for i := range e.header {
+			style, err := e.getStyleID(e.curSheetHeaderLine+1, i+1)
+			if err != nil {
+				return err
+			}
+			e.header[i].StyleID = style
+		}
+
+		// 添加行
+		var valueAny []any
+		for _, cell := range e.header {
+			valueAny = append(valueAny, cell)
+		}
+		err := e.sw.SetRow("A1", valueAny, excelize.RowOpts{Height: e.getNextRowHeight()})
 		if err != nil {
 			return err
 		}
 		e.curSheetHeaderLine++
 	}
 
+	// 设置颜色样式
+	for i := range values {
+		style, err := e.getStyleID(e.curSheetHeaderLine+1, i+1)
+		if err != nil {
+			return err
+		}
+		values[i].StyleID = style
+	}
+	
+	// 类型转换
+	var valueAny []any
+	for _, cell := range values {
+		valueAny = append(valueAny, cell)
+	}
+
 	// 写入数据
 	cell := "A" + strconv.Itoa(e.curSheetHeaderLine+1)
-	err := e.sw.SetRow(cell, values, excelize.RowOpts{Height: e.getNextRowHeight()})
+	err := e.sw.SetRow(cell, valueAny, excelize.RowOpts{Height: e.getNextRowHeight()})
 	if err != nil {
 		return err
 	}
@@ -376,6 +404,18 @@ func (e *Excel) SetStyle() error {
 
 	// 设置列对齐方式
 	err = e.SetColAlign()
+	if err != nil {
+		return err
+	}
+
+	// 设置列背景色
+	err = e.SetColBgColor()
+	if err != nil {
+		return err
+	}
+
+	// 设置行背景色
+	err = e.SetRowBgColor()
 	if err != nil {
 		return err
 	}
@@ -472,6 +512,58 @@ func (e *Excel) SetRowHeight() error {
 	return nil
 }
 
+func (e *Excel) SetColBgColor() error {
+	list, err := e.parseStyle(e.styleColBgColor)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range list {
+		minStr, maxStr, bgcolor := item[0], item[1], item[2]
+
+		min, err := strconv.Atoi(minStr)
+		if err != nil {
+			return err
+		}
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
+		}
+
+		for i := min; i <= max; i++ {
+			e.colBgColorMap[i] = bgcolor
+		}
+	}
+	return nil
+}
+
+func (e *Excel) SetRowBgColor() error {
+	list, err := e.parseStyle(e.styleRowBgColor)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range list {
+		minStr, maxStr, bgcolor := item[0], item[1], item[2]
+
+		min, err := strconv.Atoi(minStr)
+		if err != nil {
+			return err
+		}
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
+		}
+
+		for i := min; i <= max; i++ {
+			e.rowBgColorMap[i] = bgcolor
+		}
+	}
+	return nil
+}
+
 func (e *Excel) parseStyle(style string) (list [][]string, err error) {
 	if style == "" {
 		return
@@ -500,12 +592,12 @@ func (e *Excel) parseStyle(style string) (list [][]string, err error) {
 	return
 }
 
-func (e *Excel) getStyleID(index int) (int, error) {
+func (e *Excel) getStyleID(rowIndex, colIndex int) (int, error) {
 	// 样式对象
 	style := &excelize.Style{}
 
 	// 对齐样式
-	align, ok := e.colAlignMap[index]
+	align, ok := e.colAlignMap[colIndex]
 	if !ok {
 		align = "left"
 	}
@@ -514,12 +606,25 @@ func (e *Excel) getStyleID(index int) (int, error) {
 		Vertical:   "center",
 	}
 
-	// 背景颜色
-	//style.Fill = excelize.Fill{
-	//	Type:    "pattern",
-	//	Pattern: 1,
-	//	Color:   []string{"#9BC2E6"},
-	//}
+	// 列背景颜色
+	colBgColor, ok := e.colBgColorMap[colIndex]
+	if ok {
+		style.Fill = excelize.Fill{
+			Type:    "pattern",
+			Pattern: 1,
+			Color:   []string{colBgColor},
+		}
+	}
+
+	// 行背景颜色
+	rowBgColor, ok := e.rowBgColorMap[rowIndex]
+	if ok {
+		style.Fill = excelize.Fill{
+			Type:    "pattern",
+			Pattern: 1,
+			Color:   []string{rowBgColor},
+		}
+	}
 
 	// 生成样式
 	styleID, err := e.f.NewStyle(style)
@@ -590,9 +695,9 @@ var rootCmd = &cobra.Command{
 		}
 
 		// 设置表头
-		var header []any
+		var header []excelize.Cell
 		for i, value := range my.columnNames {
-			style, err := excel.getStyleID(i + 1)
+			style, err := excel.getStyleID(1, i+1)
 			if err != nil {
 				logger.Fatal(err.Error())
 			}
@@ -669,6 +774,8 @@ func init() {
 	rootCmd.Flags().StringVarP(&excel.styleColWidth, "col-width", "", "", "specifies the column width in the Excel file")
 	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "", "specifies the column alignment in the Excel file")
 	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "specifies the row height in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleColBgColor, "col-bgcolor", "", "", "specifies the col background color in the Excel file")
+	rootCmd.Flags().StringVarP(&excel.styleRowBgColor, "row-bgcolor", "", "", "specifies the row background color in the Excel file")
 
 	err = rootCmd.MarkFlagRequired("output")
 	if err != nil {
