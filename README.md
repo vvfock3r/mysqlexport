@@ -140,8 +140,8 @@ Excel Flags:
 	--col-width="1:10,2-7:50" \
 	--col-align="1-7:center" \
 	--row-height="1:30,2-7:20"
-	--row-bg-color=1:#5B9BD5
-	--row-font-color=1:FF0000
+	--row-bg-color="1:#5B9BD5"
+	--row-font-color="1:#FF0000"
 	
 # 说明
 # 1、row代表行,col代表列
