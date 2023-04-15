@@ -19,10 +19,6 @@ import (
 	"github.com/vvfock3r/mysqlexport/kernel/module/mysql"
 )
 
-// 概念说明
-// 工作簿 workbook
-// 工作表 sheet
-
 var (
 	my    = &MySQL{}
 	excel = NewExcel()
@@ -50,11 +46,18 @@ func (m *MySQL) Query() error {
 		return err
 	}
 
+	// SQL语句必须以SELECT开头,仅仅为了安全考虑,如果有特殊需求可以将下面的代码删除
+	if !strings.HasPrefix(strings.ToUpper(m.execute), "SELECT") {
+		return fmt.Errorf("the sql statement must start with the select keyword")
+	}
+
+	// 执行查询
 	rows, err := mysql.DB.Queryx(m.execute)
 	if err != nil {
 		return err
 	}
 
+	// 获取列名称
 	columnNames, err := rows.Columns()
 	if err != nil {
 		return err
@@ -184,6 +187,8 @@ func (m *MySQL) CheckSleep() {
 }
 
 type Excel struct {
+	// 概念说明: 工作簿 workbook,工作表 sheet
+
 	// flags
 	password          string // 设置密码
 	output            string // 输出文件
