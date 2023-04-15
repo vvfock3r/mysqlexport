@@ -41,13 +41,13 @@ Log Flags:
       --log-output string           specifies the log output destination (default "stdout")                    
                                                                                                                
 MySQL Flags:                                                                                                   
-  -h, --host string                 specifies the MySQL host (default "127.0.0.1")
-  -P, --port string                 specifies the MySQL port (default "3306")
-  -u, --user string                 specifies the MySQL user (default "root")
-  -p, --password string             specifies the MySQL password
-  -d, --database string             specifies the MySQL database
-  -e, --execute string              specifies the SQL command to be executed
-      --charset string              specifies the MySQL charset (default "utf8mb4")
+  -h, --host string                 specifies the MySQL host (default "127.0.0.1")                             
+  -P, --port string                 specifies the MySQL port (default "3306")                                  
+  -u, --user string                 specifies the MySQL user (default "root")                                  
+  -p, --password string             specifies the MySQL password                                               
+  -d, --database string             specifies the MySQL database                                               
+  -e, --execute string              specifies the SQL command to be executed                                   
+      --charset string              specifies the MySQL charset (default "utf8mb4")                            
       --collation string            specifies the MySQL collation (default "utf8mb4_general_ci")
       --connect-timeout string      specifies the MySQL connection timeout (default "5s")
       --read-timeout string         specifies the MySQL read timeout (default "30s")
@@ -63,8 +63,12 @@ Excel Flags:
       --workbook-line int           specifies the maximum number of lines all sheet in the Excel file (default -1)
       --sheet-line int              specifies the maximum number of lines per sheet in the Excel file (default 1000000)
       --row-height string           specifies the row height in the Excel file
+      --row-bg-color string         specifies the row background color in the Excel file
+      --row-font-color string       specifies the row font color in the Excel file
       --col-width string            specifies the column width in the Excel file
       --col-align string            specifies the column alignment in the Excel file
+      --col-bg-color string         specifies the column background color in the Excel file
+      --col-font-color string       specifies the column font color in the Excel file
 ```
 
 ## 示例
