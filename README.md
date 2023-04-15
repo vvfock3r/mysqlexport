@@ -27,13 +27,12 @@ go install github.com/vvfock3r/mysqlexport@v1.0.0
 
 ```bash
 # Linux
-wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-linux-amd64 \
+curl -L https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-v1.0.0-linux-amd64 \
      -O /usr/local/bin/mysqlexport &&
 chmod 755 /usr/local/bin/mysqlexport
 
 # Windows
-wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-linux-amd64 \
-     -O /usr/local/bin/mysqlexport
+curl -L -o mysqlexport.exe https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-v1.0.0-windows-amd64.exe 
 ```
 
 ## 选项
