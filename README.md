@@ -16,9 +16,24 @@
 
 ## 安装
 
+编译安装
+
 ```bash
-# 需要Go 1.20+
-go install github.com/vvfock3r/mysqlexport@latest
+# 要求Go 1.20+
+go install github.com/vvfock3r/mysqlexport@v1.0.0
+```
+
+直接下载二进制
+
+```bash
+# Linux
+wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-linux-amd64 \
+     -O /usr/local/bin/mysqlexport &&
+chmod 755 /usr/local/bin/mysqlexport
+
+# Windows
+wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-linux-amd64 \
+     -O /usr/local/bin/mysqlexport
 ```
 
 ## 选项
