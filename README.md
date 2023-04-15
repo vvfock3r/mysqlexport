@@ -7,7 +7,7 @@
 ## 特性
 
 * MySQ 流式读取数据，支持海量数据读取而不影响MySQL，默认每读取1W条休眠1秒钟进一步降低MySQL压力
-* Excel 流式写入数据，但客户端内存占会随着数据而增加，大概100W条数据占用50M内存
+* Excel 流式写入数据，程序占用内存最大在100M左右
 * 支持Excel简单样式，包括但不限于行高、列宽、对齐方式等
 * 支持Excel添加密码，提供基本的安全机制
 * 支持Excel多工作簿，默认所有数据写入到一个工作簿中
@@ -81,7 +81,8 @@ Excel Flags:
 
 **注意事项**
 
-* 使用 `sz` 下载大文件会损坏，请考虑其他办法，比如SFTP、WinSCP、FTP等
+* Excel文件过大时使用 `sz` 下载会损坏，请考虑其他办法，比如SFTP、WinSCP、FTP等
+* Excel文件过大时会导致系统占用资源过多，甚至会使Excel软件崩溃，可以指定 `--workbook-line`生成多个Excel文件
 
 **基本用法**
 
@@ -166,12 +167,27 @@ Excel Flags:
 
 ## 截图
 
-测试200W条数据
+测试一千万条数据
 
-![image-20230413154321933](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230413154321933.png)
+**MySQL CPU使用率**
 
-![image-20230413155328849](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230413155328849.png)
+![image-20230415211615659](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415211615659.png)
+
+**程序最高占用内存**
+
+![image-20230415211416769](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415211416769.png)
+
+**程序运行时间，总计约26分钟，其中休眠占用 1千万数据/1W条每秒 = 1000秒 =~ 16分钟，程序处理10分钟**
+
+![image-20230415212735440](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415212735440.png)
+
+**生成的工作簿**
+
+![image-20230415213038849](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415213038849.png)
+
+![image-20230415213123584](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415213123584.png)
 
 ## TODO
 
-* 样式重新设计，以单元格为单位，而不是现在的行或列
+* 代码重构，保持干净清晰
+* 样式重新设计，以单元格为单位
