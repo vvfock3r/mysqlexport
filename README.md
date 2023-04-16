@@ -20,19 +20,25 @@
 
 ```bash
 # 要求Go 1.20+
-go install github.com/vvfock3r/mysqlexport@v1.0.0
+go install github.com/vvfock3r/mysqlexport@latest
 ```
 
 直接下载二进制
 
 ```bash
 # Linux
-wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-v1.0.0-linux-amd64 \
+wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.1.0/mysqlexport-v1.1.0-linux-amd64 \
+    -O /usr/local/bin/mysqlexport &&
+chmod 755 /usr/local/bin/mysqlexport
+
+# Mac
+wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.1.0/mysqlexport-v1.1.0-darwin-amd64 \
     -O /usr/local/bin/mysqlexport &&
 chmod 755 /usr/local/bin/mysqlexport
 
 # Windows
-curl -L -o mysqlexport.exe https://github.com/vvfock3r/mysqlexport/releases/download/v1.0.0/mysqlexport-v1.0.0-windows-amd64.exe 
+curl -L https://github.com/vvfock3r/mysqlexport/releases/download/v1.1.0/mysqlexport-v1.1.0-windows-amd64.exe ^
+    -o D:/tools/mysqlexport.exe
 ```
 
 ## 选项
