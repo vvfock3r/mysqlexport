@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const AppVersion = "v1.0.0"
+const AppVersion = "v1.1.0"
 
 // Version implement the Module interface
 type Version struct {
