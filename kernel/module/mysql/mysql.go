@@ -11,10 +11,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/vvfock3r/mysqlexport/kernel/module/logger"
+	"go.uber.org/zap"
 )
 
 var DB *sqlx.DB
@@ -145,17 +143,6 @@ func (m *MySQL) Initialize(cmd *cobra.Command) error {
 		return nil
 	}
 
-	// enable interactive password
-	if strings.TrimSpace(viper.GetString(defaultPasswordKey)) == "" {
-		fmt.Printf("Password: ")
-		password, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println()
-		viper.Set(defaultPasswordKey, password)
-	}
-
 	// long parameter
 	addr := viper.GetString(defaultHostKey) + ":" + viper.GetString(defaultPortKey)
 	params := map[string]string{"charset": viper.GetString(defaultCharsetKey)}
@@ -197,12 +184,11 @@ func (m *MySQL) Initialize(cmd *cobra.Command) error {
 		panic(err)
 	}
 
-	// connect to the database
-	db, err := sqlx.Connect("mysql", mysqlConfig.FormatDSN())
+	// open the database
+	db, err := sqlx.Open("mysql", mysqlConfig.FormatDSN())
 	if err != nil {
-		logger.Fatal("connect database error", zap.Error(err))
+		logger.Fatal("open database error", zap.Error(err))
 	}
-	logger.Info("connect database success")
 
 	// set up connection pool
 	db.SetMaxOpenConns(100)

@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/cobra"
 	"github.com/xuri/excelize/v2"
+	"go.uber.org/zap"
 
 	"github.com/vvfock3r/mysqlexport/kernel/load"
 	"github.com/vvfock3r/mysqlexport/kernel/module/logger"
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	my    = &MySQL{}
+	my    = NewMySQL()
 	excel = NewExcel()
 )
 
@@ -38,6 +39,18 @@ type MySQL struct {
 	// 数据库每遍历N次延迟多久
 	delayDuration time.Duration // delayTime解析结果
 	rowNextNumber int           // 记录数据库遍历次数
+}
+
+func NewMySQL() *MySQL {
+	return &MySQL{}
+}
+
+func (m *MySQL) Ping() error {
+	return mysql.DB.Ping()
+}
+
+func (m *MySQL) Close() error {
+	return mysql.DB.Close()
 }
 
 func (m *MySQL) Query() error {
@@ -771,8 +784,16 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		// 连接数据库
+		err := my.Ping()
+		if err != nil {
+			logger.Fatal("connect database error", zap.Error(err))
+		}
+		logger.Info("connect database success")
+		defer func() { _ = my.Close() }()
+
 		// 执行SQL
-		err := my.Query()
+		err = my.Query()
 		if err != nil {
 			logger.Fatal(err.Error())
 		}
