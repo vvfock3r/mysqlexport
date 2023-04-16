@@ -35,10 +35,6 @@ chmod 755 /usr/local/bin/mysqlexport
 wget https://github.com/vvfock3r/mysqlexport/releases/download/v1.1.0/mysqlexport-v1.1.0-darwin-amd64 \
     -O /usr/local/bin/mysqlexport &&
 chmod 755 /usr/local/bin/mysqlexport
-
-# Windows
-curl -L https://github.com/vvfock3r/mysqlexport/releases/download/v1.1.0/mysqlexport-v1.1.0-windows-amd64.exe ^
-    -o D:/tools/mysqlexport.exe
 ```
 
 ## 选项
