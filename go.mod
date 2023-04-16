@@ -12,7 +12,6 @@ require (
 	github.com/xuri/excelize/v2 v2.7.1
 	go.uber.org/automaxprocs v1.5.2
 	go.uber.org/zap v1.24.0
-	golang.org/x/crypto v0.8.0
 )
 
 require (
@@ -34,9 +33,9 @@ require (
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/crypto v0.8.0 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

@@ -56,13 +56,13 @@ Log Flags:
       --log-output string           specifies the log output destination (default "stdout")                    
                                                                                                                
 MySQL Flags:                                                                                                   
-  -h, --host string                 specifies the MySQL host (default "127.0.0.1")                             
-  -P, --port string                 specifies the MySQL port (default "3306")                                  
-  -u, --user string                 specifies the MySQL user (default "root")                                  
-  -p, --password string             specifies the MySQL password                                               
-  -d, --database string             specifies the MySQL database                                               
-  -e, --execute string              specifies the SQL command to be executed                                   
-      --charset string              specifies the MySQL charset (default "utf8mb4")                            
+  -h, --host string                 specifies the MySQL host (default "127.0.0.1")
+  -P, --port string                 specifies the MySQL port (default "3306")
+  -u, --user string                 specifies the MySQL user (default "root")
+  -p, --password string             specifies the MySQL password
+  -d, --database string             specifies the MySQL database
+  -e, --execute string              specifies the SQL command to be executed
+      --charset string              specifies the MySQL charset (default "utf8mb4")
       --collation string            specifies the MySQL collation (default "utf8mb4_general_ci")
       --connect-timeout string      specifies the MySQL connection timeout (default "5s")
       --read-timeout string         specifies the MySQL read timeout (default "30s")
@@ -80,10 +80,12 @@ Excel Flags:
       --row-height string           specifies the row height in the Excel file
       --row-bg-color string         specifies the row background color in the Excel file
       --row-font-color string       specifies the row font color in the Excel file
+      --row-font-size string        specifies the row font size in the Excel file
       --col-width string            specifies the column width in the Excel file
       --col-align string            specifies the column alignment in the Excel file
       --col-bg-color string         specifies the column background color in the Excel file
       --col-font-color string       specifies the column font color in the Excel file
+      --col-font-size string        specifies the column font size in the Excel file
 ```
 
 ## 示例
@@ -155,17 +157,22 @@ Excel Flags:
 	-o 测试.xlsx \
 	--col-width="1:10,2-7:50" \
 	--col-align="1-7:center" \
-	--row-height="1:30,2-7:20"
-	--row-bg-color="1:#5B9BD5"
-	--row-font-color="1:#FF0000"
+	--row-height="1:30,2-7:20" \
+	--row-bg-color="1:#5B9BD5" \
+	--row-font-color="1:#FF0000" \	
+	--row-font-size="1:15"
 	
 # 说明
 # 1、row代表行,col代表列
-# 2、--col-width="1:10,2-7:40"        设置第一列宽度为10像素，第2-7列宽度为40像素
-# 3、--col-align="1-7:center"         设置1-7列水平居中
-# 4、--row-height="1:30,2-7:20"       设置第一行行高为30像素，第2-7行行高为20像素，单元格默认垂直居中，暂不支持自动调整
-# 5、--row-bg-colo / --row-font-color 指定行背景颜色和字体颜色
-# 6、--col-bg-colo / --col-font-color 指定列背景颜色和字体颜色
+# 2、--col-width="1:10,2-7:40"            设置第一列宽度为10像素，第2-7列宽度为40像素
+# 3、--col-align="1-7:center"             设置1-7列水平居中
+# 4、--row-height="1:30,2-7:20"           设置第一行行高为30像素，第2-7行行高为20像素，单元格默认垂直居中，暂不支持自动调整
+# 5、--row-bg-colo / --col-bg-colo        指定行和列背景颜色
+# 6、--row-font-color / --col-font-color  指定行和列字体颜色
+# 7、--row-font-size / --col-font-size    指定行和列字体大小
+
+# 备注
+# 若行和列的样式有冲突，以行样式为准
 ```
 
 **其他选项**

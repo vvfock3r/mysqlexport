@@ -212,7 +212,9 @@ type Excel struct {
 	styleRowBgColor   string // 背景色
 	styleColBgColor   string // 背景色
 	styleRowFontColor string // 字体颜色
+	styleRowFontSize  string // 字体大小
 	styleColFontColor string // 字体颜色
+	styleColFontSize  string // 字体大小
 
 	// 存储样式解析结果和表头等一般不会变的数据
 	rowHeightMap    map[int]float64 // 存储行高的Map
@@ -220,7 +222,9 @@ type Excel struct {
 	rowBgColorMap   map[int]string  // 存储背景色的Map
 	colBgColorMap   map[int]string  // 存储背景色的Map
 	rowFontColorMap map[int]string  // 存储字体颜色的Map
+	rowFontSizeMap  map[int]float64 // 存储字体颜色的Map
 	colFontColorMap map[int]string  // 存储字体颜色的Map
+	colFontSizeMap  map[int]float64 // 存储字体颜色的Map
 
 	// 表头
 	header []excelize.Cell
@@ -245,6 +249,8 @@ func NewExcel() *Excel {
 		colBgColorMap:   make(map[int]string),
 		rowFontColorMap: make(map[int]string),
 		colFontColorMap: make(map[int]string),
+		rowFontSizeMap:  make(map[int]float64),
+		colFontSizeMap:  make(map[int]float64),
 	}
 }
 
@@ -462,6 +468,18 @@ func (e *Excel) SetStyle() error {
 		return err
 	}
 
+	// 设置列字体大小
+	err = e.SetColFontSize()
+	if err != nil {
+		return err
+	}
+
+	// 设置行字体大小
+	err = e.SetRowFontSize()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -632,6 +650,37 @@ func (e *Excel) SetRowFontColor() error {
 	return nil
 }
 
+func (e *Excel) SetRowFontSize() error {
+	list, err := e.parseStyle(e.styleRowFontSize)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range list {
+		minStr, maxStr, fontSizeStr := item[0], item[1], item[2]
+
+		min, err := strconv.Atoi(minStr)
+		if err != nil {
+			return err
+		}
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
+		}
+
+		fontSize, err := strconv.ParseFloat(fontSizeStr, 10)
+		if err != nil {
+			return err
+		}
+
+		for i := min; i <= max; i++ {
+			e.rowFontSizeMap[i] = fontSize
+		}
+	}
+	return nil
+}
+
 func (e *Excel) SetColFontColor() error {
 	list, err := e.parseStyle(e.styleColFontColor)
 	if err != nil {
@@ -653,6 +702,37 @@ func (e *Excel) SetColFontColor() error {
 
 		for i := min; i <= max; i++ {
 			e.colFontColorMap[i] = fontColor
+		}
+	}
+	return nil
+}
+
+func (e *Excel) SetColFontSize() error {
+	list, err := e.parseStyle(e.styleColFontSize)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range list {
+		minStr, maxStr, fontSizeStr := item[0], item[1], item[2]
+
+		min, err := strconv.Atoi(minStr)
+		if err != nil {
+			return err
+		}
+
+		max, err := strconv.Atoi(maxStr)
+		if err != nil {
+			return err
+		}
+
+		fontSize, err := strconv.ParseFloat(fontSizeStr, 10)
+		if err != nil {
+			return err
+		}
+
+		for i := min; i <= max; i++ {
+			e.colFontSizeMap[i] = fontSize
 		}
 	}
 	return nil
@@ -720,20 +800,27 @@ func (e *Excel) getStyleID(rowIndex, colIndex int) (int, error) {
 		}
 	}
 
-	// 列字体颜色
+	// 字体设置
+	style.Font = &excelize.Font{}
+
+	// 列字体颜色和大小
 	colFontColor, ok := e.colFontColorMap[colIndex]
 	if ok {
-		style.Font = &excelize.Font{
-			Color: colFontColor,
-		}
+		style.Font.Color = colFontColor
+	}
+	colFontSize, ok := e.colFontSizeMap[colIndex]
+	if ok {
+		style.Font.Size = colFontSize
 	}
 
-	// 行字体颜色
+	// 行字体颜色和大小
 	rowFontColor, ok := e.rowFontColorMap[rowIndex]
 	if ok {
-		style.Font = &excelize.Font{
-			Color: rowFontColor,
-		}
+		style.Font.Color = rowFontColor
+	}
+	rowFontSize, ok := e.rowFontSizeMap[rowIndex]
+	if ok {
+		style.Font.Size = rowFontSize
 	}
 
 	// 生成样式
@@ -885,17 +972,19 @@ func init() {
 
 	// excel flags
 	rootCmd.Flags().StringVarP(&excel.output, "output", "o", "", "specifies the name of the output Excel file")
-	rootCmd.Flags().StringVarP(&excel.password, "setup-password", "", "", "specifies the password for the Excel file")
-	rootCmd.Flags().StringVarP(&excel.sheetName, "sheet-name", "", "", "specifies the name of the sheet in the Excel file")
+	rootCmd.Flags().StringVar(&excel.password, "setup-password", "", "specifies the password for the Excel file")
+	rootCmd.Flags().StringVar(&excel.sheetName, "sheet-name", "", "specifies the name of the sheet in the Excel file")
 	rootCmd.Flags().IntVarP(&excel.maxSheetLine, "sheet-line", "", 1000000, "specifies the maximum number of lines per sheet in the Excel file")
 	rootCmd.Flags().IntVarP(&excel.maxWorkbookLine, "workbook-line", "", -1, "specifies the maximum number of lines all sheet in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleRowHeight, "row-height", "", "", "specifies the row height in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleRowBgColor, "row-bg-color", "", "", "specifies the row background color in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleRowFontColor, "row-font-color", "", "", "specifies the row font color in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleColWidth, "col-width", "", "", "specifies the column width in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleColAlign, "col-align", "", "", "specifies the column alignment in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleColBgColor, "col-bg-color", "", "", "specifies column background color in the Excel file")
-	rootCmd.Flags().StringVarP(&excel.styleColFontColor, "col-font-color", "", "", "specifies column font color in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleRowHeight, "row-height", "", "specifies the row height in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleRowBgColor, "row-bg-color", "", "specifies the row background color in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleRowFontColor, "row-font-color", "", "specifies the row font color in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleRowFontSize, "row-font-size", "", "specifies the row font size in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleColWidth, "col-width", "", "specifies the column width in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleColAlign, "col-align", "", "specifies the column alignment in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleColBgColor, "col-bg-color", "", "specifies column background color in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleColFontColor, "col-font-color", "", "specifies column font color in the Excel file")
+	rootCmd.Flags().StringVar(&excel.styleColFontSize, "col-font-size", "", "specifies column font size in the Excel file")
 
 	err = rootCmd.MarkFlagRequired("output")
 	if err != nil {
