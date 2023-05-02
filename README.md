@@ -212,8 +212,3 @@ Excel Flags:
 ![image-20230415214220890](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415214220890.png)
 
 ![image-20230415213123584](https://tuchuang-1257805459.cos.accelerate.myqcloud.com//image-20230415213123584.png)
-
-## TODO
-
-* 代码重构，保持干净清晰
-* 样式重新设计，以单元格为单位
